@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Matematik Denizi Yarışı - Hak Sistemli</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background-color: #2980b9; 
+            margin: 0; 
+            overflow: hidden; 
+            display: flex; 
+            justify-content: center; 
+        }
+        
+        #game-screen { 
+            position: relative; 
+            width: 800px; 
+            height: 100vh; 
+            background: #2980b9; 
+            overflow: hidden;
+        }
+
+        #score-board {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 300;
+            font-weight: bold;
+            border: 3px solid #2980b9;
+        }
+        .correct { color: #27ae60; }
+        .wrong { color: #e74c3c; }
+
+        .ocean { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .wave-container {
+            position: absolute; width: 100%; height: 200%; top: -100%;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 100 100'%3E%3Cpath d='M10 20 Q 25 10, 40 20' fill='none' stroke='white' stroke-width='1' opacity='0.3'/%3E%3Cpath d='M60 60 Q 75 50, 90 60' fill='none' stroke='white' stroke-width='1' opacity='0.3'/%3E%3Cpath d='M20 90 Q 35 80, 50 90' fill='none' stroke='white' stroke-width='1' opacity='0.3'/%3E%3C/svg%3E");
+            background-size: 250px 250px;
+            animation: oceanFlow 12s linear infinite;
+        }
+        @keyframes oceanFlow { from { transform: translateY(0); } to { transform: translateY(500px); } }
+
+        #bridge {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            width: 500px; height: 100%; background: #926a43;
+            border-left: 12px solid #5d4037; border-right: 12px solid #5d4037;
+            background-image: repeating-linear-gradient(0deg, #926a43, #926a43 55px, #5d4037 55px, #5d4037 60px);
+            z-index: 5; box-shadow: 0 0 60px rgba(0,0,0,0.6);
+        }
+
+        #car { 
+            position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%);
+            width: 75px; height: 130px; background: #d63031; border-radius: 12px 12px 8px 8px;
+            z-index: 100; transition: all 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.6); border: 2px solid #2d3436;
+        }
+
+        .gate { position: absolute; width: 500px; left: 50%; transform: translateX(-50%); display: flex; justify-content: space-around; top: 160px; z-index: 50; }
+        .plank { 
+            width: 110px; height: 85px; background: #e67e22; border: 4px solid #d35400; 
+            border-radius: 10px; cursor: pointer; display: flex; align-items: center; 
+            justify-content: center; color: white; box-shadow: 0 6px 0 #933d00; 
+            transition: 0.2s; font-weight: bold; font-size: 22px;
+        }
+
+        /* CEVAP PANELİ */
+        #answer-panel {
+            position: absolute; top: 50%; left: 30px; 
+            transform: translateY(-50%);
+            background: white; padding: 20px; border-radius: 20px;
+            border: 4px solid #d35400; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: none; flex-direction: column; align-items: center;
+            z-index: 400; width: 200px;
+        }
+        #tries-left { font-size: 12px; color: #e74c3c; margin-top: 5px; }
+
+        .driving #bridge { animation: bridgeSpeed 0.25s linear infinite; }
+        @keyframes bridgeSpeed { from { background-position: 0 0; } to { background-position: 0 60px; } }
+
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; z-index: 200; }
+        .banner { background: white; color: #2980b9; padding: 12px 35px; border-radius: 50px; font-weight: bold; font-size: 22px; border: 4px solid #2980b9; }
+
+        #final { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(41, 128, 185, 0.98); display: none; flex-direction: column; 
+            align-items: center; justify-content: center; z-index: 1000; color: white;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-screen">
+    <div id="score-board">
+        Doğru: <span id="correct-count" class="correct">0</span> | 
+        Yanlış: <span id="wrong-count" class="wrong">0</span>
+    </div>
+
+    <div class="ocean"><div class="wave-container"></div></div>
+    <div id="bridge"></div>
+    <div id="ui"><div class="banner" id="msg">Farklı Olan Tahtayı Bul! 🏎️💨</div></div>
+
+    <div id="answer-panel">
+        <h3 id="panel-question" style="margin:0; color:#2980b9;">0-0=?</h3>
+        <input type="number" id="answer-input" style="width:80px; font-size:24px; text-align:center; margin:10px 0;">
+        <button onclick="submitAnswer()" style="padding:8px 20px; background:#27ae60; color:white; border:none; border-radius:5px; cursor:pointer;">GÖNDER</button>
+        <div id="tries-left">Kalan Hak: 3</div>
+    </div>
+
+    <div id="car"><div class="car-windshield" style="position:absolute; top:25px; left:10px; right:10px; height:35px; background:#2d3436; border-radius:6px;"></div></div>
+    <div class="gate" id="current-gate"></div>
+
+    <div id="final">
+        <h1>BÖLÜM BİTTİ! 🏆</h1>
+        <div id="star-display" style="font-size:50px; color:#f1c40f; margin:15px 0;"></div>
+        <p id="final-stats"></p>
+        <button onclick="resetGame()" style="padding:15px 45px; border-radius:30px; cursor:pointer; background:#f1c40f; border:none; font-weight:bold;">TEKRAR BAŞLA</button>
+    </div>
+</div>
+
+<script>
+    let step = 0;
+    let totalSteps = 6;
+    let corrects = 0;
+    let wrongs = 0;
+    let inputTries = 3;
+    let targetOption = null;
+    const laneX = [24, 42, 58, 76]; 
+
+    function updateScore() {
+        document.getElementById('correct-count').innerText = corrects;
+        document.getElementById('wrong-count').innerText = wrongs;
+    }
+
+    function generateLevel() {
+        const gate = document.getElementById('current-gate');
+        gate.innerHTML = '';
+        gate.style.display = 'flex';
+        document.getElementById('answer-panel').style.display = 'none';
+        inputTries = 3;
+        
+        const diffs = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+        let common = diffs[Math.floor(Math.random() * diffs.length)];
+        let odd;
+        do { odd = diffs[Math.floor(Math.random() * diffs.length)]; } while (odd === common);
+
+        let options = [];
+        let usedBases = new Set();
+        while(options.length < 3) {
+            let base = Math.floor(Math.random() * 30) + 20;
+            if(!usedBases.has(base)) {
+                options.push({ text: `${base}-${base-common}`, result: common, isWin: false });
+                usedBases.add(base);
+            }
+        }
+        let baseWin;
+        do { baseWin = Math.floor(Math.random() * 30) + 20; } while(usedBases.has(baseWin));
+        options.push({ text: `${baseWin}-${baseWin-odd}`, result: odd, isWin: true });
+        options.sort(() => Math.random() - 0.5);
+
+        options.forEach((opt, idx) => {
+            const div = document.createElement('div');
+            div.className = 'plank';
+            div.innerHTML = opt.text;
+            div.onclick = () => handleSelection(idx, opt);
+            gate.appendChild(div);
+        });
+    }
+
+    function handleSelection(idx, opt) {
+        document.getElementById('car').style.left = laneX[idx] + '%';
+        if (opt.isWin) {
+            targetOption = opt;
+            document.getElementById('panel-question').innerText = `${opt.text} = ?`;
+            document.getElementById('answer-input').value = '';
+            document.getElementById('tries-left').innerText = `Kalan Hak: 3`;
+            document.getElementById('answer-panel').style.display = 'flex';
+            document.getElementById('answer-input').focus();
+        } else {
+            // Tahta seçimi yanlışsa en başa değil, bir önceki aşamaya (ya da 0'a)
+            wrongs++;
+            updateScore();
+            alert("Bu tahtanın farkı diğerleriyle aynı! Bir önceki aşamaya dönülüyor.");
+            moveToPreviousStep();
+        }
+    }
+
+    function submitAnswer() {
+        const val = parseInt(document.getElementById('answer-input').value);
+        if (val === targetOption.result) {
+            document.getElementById('answer-panel').style.display = 'none';
+            executeWin();
+        } else {
+            inputTries--;
+            if (inputTries > 0) {
+                document.getElementById('tries-left').innerText = `Hatalı! Kalan Hak: ${inputTries}`;
+                document.getElementById('answer-input').value = '';
+                document.getElementById('answer-input').focus();
+            } else {
+                // 3 Hak bitti
+                wrongs++;
+                updateScore();
+                alert(`Hakların bitti! Doğru cevap ${targetOption.result} olmalıydı. Bir aşama geri gidiyorsun.`);
+                document.getElementById('answer-panel').style.display = 'none';
+                moveToPreviousStep();
+            }
+        }
+    }
+
+    function moveToPreviousStep() {
+        step = Math.max(0, step - 1);
+        document.getElementById('msg').innerText = "Geri gidildi! 💥";
+        document.getElementById('car').style.transform = "translateX(-50%) rotate(15deg)";
+        setTimeout(() => {
+            document.getElementById('car').style.transform = "translateX(-50%)";
+            document.getElementById('car').style.left = '50%';
+            generateLevel();
+        }, 800);
+    }
+
+    function executeWin() {
+        corrects++;
+        step++;
+        updateScore();
+        document.getElementById('current-gate').style.display = 'none';
+        document.getElementById('game-screen').classList.add('driving');
+        document.getElementById('msg').innerText = "DOĞRU! 🏎️⚡";
+        setTimeout(() => {
+            document.getElementById('game-screen').classList.remove('driving');
+            if(step >= totalSteps) showFinal();
+            else generateLevel();
+        }, 1000);
+    }
+
+    function showFinal() {
+        document.getElementById('final').style.display = 'flex';
+        let starCount = 1;
+        if (wrongs === 0) starCount = 5;
+        else if (wrongs <= 2) starCount = 4;
+        else if (wrongs <= 4) starCount = 3;
+        else if (wrongs <= 6) starCount = 2;
+        document.getElementById('star-display').innerText = "⭐".repeat(starCount);
+        document.getElementById('final-stats').innerText = `Hatalar: ${wrongs}`;
+    }
+
+    function resetGame() {
+        step = 0; corrects = 0; wrongs = 0;
+        updateScore();
+        document.getElementById('final').style.display = 'none';
+        document.getElementById('car').style.left = '50%';
+        generateLevel();
+    }
+
+    document.getElementById('answer-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') submitAnswer(); });
+    generateLevel();
+</script>
+
+</body>
+</html>
